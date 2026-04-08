@@ -44,7 +44,10 @@ const DATA_CONFIG = {
     totalCost:     'Total Project Costs',
     contribution:  'Total contribution',
     startDate:     'Start Date',
-    endDate:       'End Date'
+    endDate:       'End Date',
+    description:   'Project Description',
+    licensee:      'Funding Licensee',
+    riioType:      'RIIO Type'
   }
 };
 </script>
@@ -314,6 +317,47 @@ th.sortable.active .sort-arrow{opacity:1;color:var(--orange)}
 .funnel-stat-val{font-size:1.15rem;font-weight:900;font-variant-numeric:tabular-nums}
 .funnel-stat-label{font-size:.62rem;color:var(--text-light);text-transform:uppercase;letter-spacing:.07em;margin-top:.1rem;font-weight:700}
 
+/* ── PROJECT SEARCH ── */
+.search-wrap{position:relative;max-width:100%}
+.search-input{
+  width:100%;padding:.75rem 1rem .75rem 2.6rem;
+  border:2px solid var(--border);border-radius:10px;
+  font-size:.88rem;font-family:'Nunito',Arial,sans-serif;
+  font-weight:600;color:var(--text-dark);
+  background:var(--bg-page);transition:border-color .2s,box-shadow .2s;
+  outline:none;
+}
+.search-input:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(247,149,30,.15)}
+.search-input::placeholder{color:var(--text-light);font-weight:400}
+.search-icon{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--text-light);font-size:1rem;pointer-events:none}
+.search-results{max-height:420px;overflow-y:auto;margin-top:.75rem}
+.search-card{
+  border:1.5px solid var(--border);border-radius:10px;padding:1.1rem 1.3rem;
+  margin-bottom:.6rem;cursor:pointer;transition:all .2s;background:var(--white);
+}
+.search-card:hover{border-color:var(--orange);box-shadow:0 4px 16px rgba(247,149,30,.12);transform:translateY(-1px)}
+.search-card.expanded{border-color:var(--orange);background:var(--bg-page)}
+.search-card-header{display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem}
+.search-card-name{font-weight:800;color:var(--text-dark);font-size:.88rem;line-height:1.3}
+.search-card-funding{font-weight:900;color:var(--red);font-size:.88rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+.search-card-meta{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.45rem}
+.search-card-detail{
+  display:none;margin-top:.9rem;padding-top:.9rem;
+  border-top:1px solid var(--border);line-height:1.7;
+}
+.search-card.expanded .search-card-detail{display:block}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:.3rem .75rem;font-size:.78rem;margin-bottom:.75rem}
+.detail-label{color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em}
+.detail-value{color:var(--text-dark);font-weight:600}
+.detail-desc{font-size:.82rem;color:var(--text-mid);line-height:1.65;font-weight:400}
+.search-count{font-size:.73rem;color:var(--text-light);font-weight:600;margin-bottom:.5rem}
+
+/* ── SANKEY / FLOW ── */
+.sankey-wrap{position:relative;width:100%;overflow-x:auto}
+.sankey-wrap svg{display:block;margin:0 auto}
+.sankey-wrap .flow-path{transition:opacity .2s}
+.sankey-wrap .flow-path:hover{opacity:1 !important}
+
 /* ── RESPONSIVE ── */
 @media(max-width:960px){
   .kpi-strip,.card-grid-2,.card-grid-3{grid-template-columns:1fr 1fr}
@@ -470,6 +514,15 @@ th.sortable.active .sort-arrow{opacity:1;color:var(--orange)}
   </div>
 </div>
 
+<div class="content-section">
+  <div class="section-header"><div class="section-title-bar" style="background:var(--teal)"></div><div class="section-title">Phase Conversion Flow</div></div>
+  <div class="card">
+    <div class="card-title"><span class="card-dot" style="background:var(--teal)"></span>Discovery → Alpha → Beta Pipeline by Round</div>
+    <p style="font-size:.73rem;color:var(--text-light);margin-bottom:1rem;font-weight:600">Tracks unique projects through SIF phases — width represents number of projects. Projects that reappear in a later phase are shown progressing; those that don't are shown dropping out.</p>
+    <div class="sankey-wrap" id="sankeyWrap"></div>
+  </div>
+</div>
+
 <div class="content-section alt">
   <div class="section-header"><div class="section-title-bar"></div><div class="section-title">Efficiency and Scale</div></div>
   <div class="card-grid card-grid-2">
@@ -502,6 +555,21 @@ th.sortable.active .sort-arrow{opacity:1;color:var(--orange)}
     </table>
   </div>
 </div>
+
+<div class="content-section alt" style="padding-bottom:3rem">
+  <div class="section-header"><div class="section-title-bar" style="background:var(--aqua)"></div><div class="section-title">Project Explorer</div></div>
+  <div class="card">
+    <div class="card-title"><span class="card-dot" style="background:var(--aqua)"></span>Search All Projects</div>
+    <p style="font-size:.73rem;color:var(--text-light);margin-bottom:1rem;font-weight:600">Search by project name, network group, or keyword. Click a result to expand full details including project description.</p>
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" class="search-input" id="projectSearch" placeholder="Search projects — e.g. 'CReDo', 'UKPN', 'hydrogen', 'beta'…" oninput="searchProjects(this.value)">
+    </div>
+    <div class="search-count" id="searchCount"></div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
 </div><!-- /tab-overview -->
 
 <!-- ══════════════════════════ TAB: UKPN ══════════════════════════ -->
@@ -721,6 +789,9 @@ function parseExcelRows(rows) {
   const iContrib = idx(col.contribution);
   const iStart  = idx(col.startDate);
   const iEnd    = idx(col.endDate);
+  const iDesc   = idx(col.description);
+  const iLic    = idx(col.licensee);
+  const iRiio   = idx(col.riioType);
 
   const projects = [];
   for (let r = 1; r < rows.length; r++) {
@@ -750,7 +821,10 @@ function parseExcelRows(rows) {
       cost:    parseFloat(row[iCost]) || 0,
       contrib: parseFloat(row[iContrib]) || 0,
       start:   parseDate(row[iStart]),
-      end:     parseDate(row[iEnd])
+      end:     parseDate(row[iEnd]),
+      description: iDesc >= 0 ? String(row[iDesc] || '').trim() : '',
+      licensee:    iLic >= 0 ? String(row[iLic] || '').trim() : '',
+      riioType:    iRiio >= 0 ? String(row[iRiio] || '').trim() : ''
     });
   }
   return projects;
@@ -889,8 +963,10 @@ function getActive(groups) { return groups.map((g,i)=>({g,i})).filter(o=>activeG
 function renderAll() {
   const s = globalStats;
   document.querySelectorAll('.filter-pill').forEach(p => p.classList.toggle('active', activeGroups.has(p.dataset.group)));
-  renderChart1(s); renderChart2(s); renderChart6(s); renderChart7(s);
-  renderChart10(s); renderChart11(s); renderHeatmap(s);
+  renderChart1(s); renderChart2(s); renderChart3(s); renderChart4(s); renderChart5(s);
+  renderChart6(s); renderChart7(s);
+  renderChart10(s); renderChart11(s); renderHeatmap(s); renderSankey(s);
+  renderTopTable(s);
 }
 
 function renderKPIs(s) {
@@ -952,7 +1028,11 @@ function renderChart2(s) {
 
 function renderChart3(s) {
   destroyChart('c3');
-  const sectors = Object.entries(s.sectorTotals).sort((a,b)=>b[1]-a[1]);
+  const filtered = s.projects.filter(p => activeGroups.has(p.group));
+  const st = {};
+  filtered.forEach(p => { st[p.sector] = (st[p.sector]||0) + p.sif; });
+  const sectors = Object.entries(st).sort((a,b)=>b[1]-a[1]);
+  if (!sectors.length) { document.getElementById('sectorLegend').innerHTML = ''; return; }
   const sColors = [C.navy, C.yellow, C.teal, C.orange, C.lilac];
   charts['c3'] = new Chart(document.getElementById('chart3'), {
     type:'doughnut',
@@ -971,13 +1051,19 @@ function renderChart3(s) {
 
 function renderChart4(s) {
   destroyChart('c4');
+  const filtered = s.projects.filter(p => activeGroups.has(p.group));
   const sectors = ['Electricity','Gas','System Operator'];
   const sColors = [C.navy, C.yellow, C.teal];
+  const rsd = {};
+  s.rounds.forEach(r => {
+    rsd[r] = {};
+    filtered.filter(p=>p.round===r).forEach(p => { rsd[r][p.sector] = (rsd[r][p.sector]||0) + p.sif; });
+  });
   charts['c4'] = new Chart(document.getElementById('chart4'), {
     type:'bar',
     data:{labels:s.rounds.map(r=>'Round '+r), datasets:sectors.map((sec,i)=>({
       label:sec,
-      data:s.rounds.map(r=>s.roundSectorData[r]?.[sec]||0),
+      data:s.rounds.map(r=>rsd[r]?.[sec]||0),
       backgroundColor:sColors[i]+'bb',borderRadius:3
     }))},
     options:{responsive:true,maintainAspectRatio:false,
@@ -988,12 +1074,21 @@ function renderChart4(s) {
 
 function renderChart5(s) {
   destroyChart('c5');
+  const filtered = s.projects.filter(p => activeGroups.has(p.group));
+  const rpd = {};
+  s.rounds.forEach(r => {
+    rpd[r] = { Discovery:0, Alpha:0, Beta:0 };
+    filtered.filter(p=>p.round===r).forEach(p => {
+      const ph = s.phaseLabel(p.phase);
+      if (rpd[r][ph] !== undefined) rpd[r][ph]++;
+    });
+  });
   charts['c5'] = new Chart(document.getElementById('chart5'), {
     type:'bar',
     data:{labels:s.rounds.map(r=>'Round '+r), datasets:[
-      {label:'Discovery',data:s.rounds.map(r=>s.roundPhaseData[r]?.Discovery||0),backgroundColor:'rgba(39,24,126,.65)',borderRadius:3},
-      {label:'Alpha',    data:s.rounds.map(r=>s.roundPhaseData[r]?.Alpha||0),   backgroundColor:'rgba(247,149,30,.8)',borderRadius:3},
-      {label:'Beta',     data:s.rounds.map(r=>s.roundPhaseData[r]?.Beta||0),    backgroundColor:'rgba(156,20,33,.8)',borderRadius:3}
+      {label:'Discovery',data:s.rounds.map(r=>rpd[r]?.Discovery||0),backgroundColor:'rgba(39,24,126,.65)',borderRadius:3},
+      {label:'Alpha',    data:s.rounds.map(r=>rpd[r]?.Alpha||0),   backgroundColor:'rgba(247,149,30,.8)',borderRadius:3},
+      {label:'Beta',     data:s.rounds.map(r=>rpd[r]?.Beta||0),    backgroundColor:'rgba(156,20,33,.8)',borderRadius:3}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false}},
@@ -1094,7 +1189,8 @@ function renderChart11(s) {
 
 function renderTopTable(s) {
   const sectorTag = sec => sec==='Electricity'?'tag-elec':sec==='Gas'?'tag-gas':'tag-so';
-  document.getElementById('topTable').innerHTML = s.top10.map((p,i)=>
+  const filtered = [...s.projects].filter(p => activeGroups.has(p.group)).sort((a,b)=>b.sif-a.sif).slice(0,10);
+  document.getElementById('topTable').innerHTML = filtered.map((p,i)=>
     `<tr><td style="color:var(--text-light);font-weight:700">${i+1}</td>
      <td style="color:var(--text-dark);font-weight:700">${p.name}${p.group==='UKPN'?' <span style="font-size:.63rem;background:var(--orange);color:#fff;padding:.1rem .4rem;border-radius:3px;font-weight:800">UKPN</span>':''}</td>
      <td>${p.group}</td>
@@ -1421,6 +1517,186 @@ function _renderUKPNTableSorted() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// SANKEY / PHASE CONVERSION FLOW
+// ═══════════════════════════════════════════════════════════
+function renderSankey(s) {
+  const projects = s.projects.filter(p => activeGroups.has(p.group));
+  // Build unique project journeys by normalising names
+  const norm = n => n.split(' (')[0].split(' -')[0].trim().toLowerCase();
+  const journeys = {};
+  projects.forEach(p => {
+    const key = norm(p.name) + '|' + p.group;
+    if (!journeys[key]) journeys[key] = { name: p.name, group: p.group, phases: {} };
+    const ph = s.phaseLabel(p.phase);
+    if (!journeys[key].phases[ph] || p.sif > journeys[key].phases[ph].sif) {
+      journeys[key].phases[ph] = { round: p.round, sif: p.sif };
+    }
+  });
+
+  const jList = Object.values(journeys);
+  const disc = jList.filter(j => j.phases['Discovery']);
+  const alpha = jList.filter(j => j.phases['Alpha']);
+  const beta = jList.filter(j => j.phases['Beta']);
+
+  // Flow counts
+  const discToAlpha = jList.filter(j => j.phases['Discovery'] && j.phases['Alpha']).length;
+  const alphaToBeta = jList.filter(j => j.phases['Alpha'] && j.phases['Beta']).length;
+  const discOnly    = disc.length - discToAlpha;
+  const alphaOnly   = alpha.length - discToAlpha - alphaToBeta + jList.filter(j => j.phases['Discovery'] && j.phases['Alpha'] && j.phases['Beta']).length;
+  const alphaNew    = alpha.length - discToAlpha;
+  const betaNew     = beta.length - alphaToBeta;
+
+  // SVG dimensions
+  const W = 780, H = 320;
+  const colX = [80, 360, 640];
+  const boxW = 120, boxR = 8;
+
+  // Node positions and heights (proportional to project count, min height 30)
+  const maxN = Math.max(disc.length, alpha.length, beta.length, 1);
+  const nodeH = n => Math.max(30, (n / maxN) * 200);
+
+  const dH = nodeH(disc.length), aH = nodeH(alpha.length), bH = nodeH(beta.length);
+  const dY = H/2 - dH/2, aY = H/2 - aH/2, bY = H/2 - bH/2;
+
+  // Flow path helper (curved)
+  function flowPath(x1, y1, h1, x2, y2, h2) {
+    const midX = (x1 + x2) / 2;
+    return `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2} L${x2},${y2+h2} C${midX},${y2+h2} ${midX},${y1+h1} ${x1},${y1+h1} Z`;
+  }
+
+  // Proportional flow heights
+  const dToA_h = discToAlpha > 0 ? (discToAlpha / disc.length) * dH : 0;
+  const dDrop_h = dH - dToA_h;
+  const aFromD_h = discToAlpha > 0 ? (discToAlpha / alpha.length) * aH : 0;
+  const aFromNew_h = alphaNew > 0 ? (alphaNew / alpha.length) * aH : 0;
+  const aToB_h = alphaToBeta > 0 ? (alphaToBeta / alpha.length) * aH : 0;
+  const aDrop_h = aH - aToB_h - (betaNew > 0 ? 0 : 0);
+  const bFromA_h = alphaToBeta > 0 ? (alphaToBeta / Math.max(beta.length,1)) * bH : 0;
+  const bFromNew_h = bH - bFromA_h;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H+20}" xmlns="http://www.w3.org/2000/svg" style="max-width:${W}px;width:100%;height:auto;font-family:Nunito,Arial,sans-serif">`;
+
+  // Flow: Discovery → Alpha (progressed)
+  if (dToA_h > 0 && aFromD_h > 0) {
+    svg += `<path class="flow-path" d="${flowPath(colX[0]+boxW, dY, dToA_h, colX[1], aY, aFromD_h)}" fill="rgba(247,149,30,.25)" stroke="rgba(247,149,30,.4)" stroke-width="0.5" opacity="0.8">
+      <title>${discToAlpha} projects progressed Discovery → Alpha</title></path>`;
+  }
+
+  // Flow: Discovery → dropped (goes down and fades)
+  if (dDrop_h > 5) {
+    svg += `<path d="M${colX[0]+boxW},${dY+dToA_h} C${colX[0]+boxW+60},${dY+dToA_h} ${colX[0]+boxW+80},${H-15} ${colX[0]+boxW+100},${H-5} L${colX[0]+boxW+100},${H+5} C${colX[0]+boxW+80},${H-5} ${colX[0]+boxW+60},${dY+dH+10} ${colX[0]+boxW},${dY+dH} Z" fill="rgba(156,20,33,.08)" stroke="rgba(156,20,33,.12)" stroke-width="0.5" opacity="0.5">
+      <title>${discOnly} projects did not progress beyond Discovery</title></path>`;
+  }
+
+  // Flow: Alpha → Beta (progressed)
+  if (aToB_h > 0 && bFromA_h > 0) {
+    svg += `<path class="flow-path" d="${flowPath(colX[1]+boxW, aY, aToB_h, colX[2], bY, bFromA_h)}" fill="rgba(156,20,33,.25)" stroke="rgba(156,20,33,.4)" stroke-width="0.5" opacity="0.8">
+      <title>${alphaToBeta} projects progressed Alpha → Beta</title></path>`;
+  }
+
+  // Flow: Alpha → dropped
+  const aDropCount = alpha.length - alphaToBeta;
+  if (aDropCount > 0 && aDrop_h > 5) {
+    svg += `<path d="M${colX[1]+boxW},${aY+aToB_h} C${colX[1]+boxW+60},${aY+aToB_h} ${colX[1]+boxW+80},${H-15} ${colX[1]+boxW+100},${H-5} L${colX[1]+boxW+100},${H+5} C${colX[1]+boxW+80},${H-5} ${colX[1]+boxW+60},${aY+aH+10} ${colX[1]+boxW},${aY+aH} Z" fill="rgba(156,20,33,.08)" stroke="rgba(156,20,33,.12)" stroke-width="0.5" opacity="0.5">
+      <title>${aDropCount} projects did not progress beyond Alpha</title></path>`;
+  }
+
+  // Phase boxes
+  const phases = [
+    { label: 'Discovery', count: disc.length, x: colX[0], y: dY, h: dH, color: '#27187E' },
+    { label: 'Alpha', count: alpha.length, x: colX[1], y: aY, h: aH, color: '#F7951E' },
+    { label: 'Beta', count: beta.length, x: colX[2], y: bY, h: bH, color: '#9C1421' }
+  ];
+  phases.forEach(p => {
+    svg += `<rect x="${p.x}" y="${p.y}" width="${boxW}" height="${p.h}" rx="${boxR}" fill="${p.color}" opacity="0.9"/>`;
+    svg += `<text x="${p.x+boxW/2}" y="${p.y+p.h/2-8}" text-anchor="middle" fill="#fff" font-size="13" font-weight="800">${p.label}</text>`;
+    svg += `<text x="${p.x+boxW/2}" y="${p.y+p.h/2+12}" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="20" font-weight="900">${p.count}</text>`;
+  });
+
+  // Conversion rate labels
+  if (disc.length > 0) {
+    const rate1 = ((discToAlpha / disc.length) * 100).toFixed(0);
+    svg += `<text x="${(colX[0]+boxW+colX[1])/2}" y="${Math.min(dY, aY)-8}" text-anchor="middle" fill="${C.textLight}" font-size="11" font-weight="700">${discToAlpha} progressed (${rate1}%)</text>`;
+  }
+  if (alpha.length > 0) {
+    const rate2 = ((alphaToBeta / alpha.length) * 100).toFixed(0);
+    svg += `<text x="${(colX[1]+boxW+colX[2])/2}" y="${Math.min(aY, bY)-8}" text-anchor="middle" fill="${C.textLight}" font-size="11" font-weight="700">${alphaToBeta} progressed (${rate2}%)</text>`;
+  }
+
+  // Drop-out labels
+  if (discOnly > 0) svg += `<text x="${colX[0]+boxW+50}" y="${H+15}" text-anchor="middle" fill="${C.red}" font-size="10" font-weight="700">${discOnly} did not advance</text>`;
+  if (aDropCount > 0) svg += `<text x="${colX[1]+boxW+50}" y="${H+15}" text-anchor="middle" fill="${C.red}" font-size="10" font-weight="700">${aDropCount} did not advance</text>`;
+
+  svg += '</svg>';
+  document.getElementById('sankeyWrap').innerHTML = svg;
+}
+
+// ═══════════════════════════════════════════════════════════
+// PROJECT SEARCH & DETAIL PANEL
+// ═══════════════════════════════════════════════════════════
+function searchProjects(query) {
+  const container = document.getElementById('searchResults');
+  const countEl = document.getElementById('searchCount');
+  if (!globalStats) { container.innerHTML = ''; countEl.textContent = ''; return; }
+
+  const q = query.toLowerCase().trim();
+  if (q.length < 2) {
+    container.innerHTML = '';
+    countEl.textContent = q.length === 0 ? '' : 'Type at least 2 characters to search…';
+    return;
+  }
+
+  const results = globalStats.projects.filter(p =>
+    p.name.toLowerCase().includes(q) ||
+    p.group.toLowerCase().includes(q) ||
+    p.sector.toLowerCase().includes(q) ||
+    (p.description || '').toLowerCase().includes(q) ||
+    (p.licensee || '').toLowerCase().includes(q) ||
+    (p.riioType || '').toLowerCase().includes(q) ||
+    String(p.round).includes(q) ||
+    p.phase.toLowerCase().includes(q)
+  ).sort((a,b) => b.sif - a.sif);
+
+  countEl.textContent = results.length === 0 ? 'No projects found' : `${results.length} project${results.length===1?'':'s'} found`;
+
+  const ph = globalStats.phaseLabel;
+  const sectorTag = sec => sec==='Electricity'?'tag-elec':sec==='Gas'?'tag-gas':'tag-so';
+  const phaseTag = phase => {
+    const p = ph(phase);
+    if (p==='Beta') return '<span class="phase-pip phase-beta">Beta</span>';
+    if (p==='Alpha') return '<span class="phase-pip phase-alpha">Alpha</span>';
+    return '<span class="phase-pip phase-disc">Discovery</span>';
+  };
+
+  container.innerHTML = results.slice(0, 50).map((p, i) => `
+    <div class="search-card" onclick="this.classList.toggle('expanded')" id="sc${i}">
+      <div class="search-card-header">
+        <div class="search-card-name">${p.name}</div>
+        <div class="search-card-funding">${fmtK(p.sif)}</div>
+      </div>
+      <div class="search-card-meta">
+        <span class="tag ${sectorTag(p.sector)}">${p.sector}</span>
+        ${phaseTag(p.phase)}
+        <span style="font-size:.68rem;color:var(--text-light);font-weight:700">R${p.round} · ${p.group}</span>
+      </div>
+      <div class="search-card-detail">
+        <div class="detail-grid">
+          <div><div class="detail-label">Lead Network Group</div><div class="detail-value">${p.group}</div></div>
+          <div><div class="detail-label">Funding Licensee</div><div class="detail-value">${p.licensee || '—'}</div></div>
+          <div><div class="detail-label">RIIO Type</div><div class="detail-value">${p.riioType || '—'}</div></div>
+          <div><div class="detail-label">Round</div><div class="detail-value">${p.round}</div></div>
+          <div><div class="detail-label">Total Project Cost</div><div class="detail-value">${fmtK(p.cost)}</div></div>
+          <div><div class="detail-label">SIF Funding</div><div class="detail-value" style="color:var(--red);font-weight:800">${fmtK(p.sif)}</div></div>
+          <div><div class="detail-label">Start Date</div><div class="detail-value">${p.start || '—'}</div></div>
+          <div><div class="detail-label">End Date</div><div class="detail-value">${p.end || '—'}</div></div>
+        </div>
+        ${p.description ? `<div class="detail-label" style="margin-bottom:.3rem">Project Description</div><div class="detail-desc">${p.description}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
 // LOADING UI HELPERS
 // ═══════════════════════════════════════════════════════════
 function setLoading(msg, detail='') {
@@ -1469,10 +1745,6 @@ async function loadDashboard() {
     renderKPIs(globalStats);
     renderFilterPills(globalStats);
     renderAll();
-    renderChart3(globalStats);
-    renderChart4(globalStats);
-    renderChart5(globalStats);
-    renderTopTable(globalStats);
     setFreshness(projects);
     hideLoading();
 
