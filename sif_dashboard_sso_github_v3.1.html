@@ -270,6 +270,10 @@ table.data-table th{
 }
 table.data-table td{padding:.6rem .8rem;border-bottom:1px solid var(--border);color:var(--text-mid);font-weight:600}
 table.data-table tr:hover td{background:var(--bg-purple)}
+th.sortable{cursor:pointer;user-select:none;position:relative;transition:color .15s}
+th.sortable:hover{color:var(--orange)}
+th.sortable .sort-arrow{font-size:.6rem;margin-left:.2rem;opacity:.5}
+th.sortable.active .sort-arrow{opacity:1;color:var(--orange)}
 .tag{display:inline-block;padding:.15rem .5rem;border-radius:4px;font-size:.66rem;font-weight:800}
 .tag-elec{background:rgba(39,24,126,.1);color:var(--navy)}
 .tag-gas{background:rgba(255,203,0,.3);color:#5c3d00}
@@ -493,7 +497,7 @@ table.data-table tr:hover td{background:var(--bg-purple)}
   <div class="section-header"><div class="section-title-bar red"></div><div class="section-title">Top 10 Projects by Funding</div></div>
   <div class="card" style="overflow-x:auto">
     <table class="data-table">
-      <thead><tr><th>#</th><th>Project Name</th><th>Lead Group</th><th>Sector</th><th>Phase</th><th style="text-align:right">SIF Funding</th></tr></thead>
+      <thead><tr><th>#</th><th>Project Name</th><th>Lead Group</th><th>Sector</th><th>Round</th><th>Phase</th><th style="text-align:right">SIF Funding</th></tr></thead>
       <tbody id="topTable"></tbody>
     </table>
   </div>
@@ -577,7 +581,12 @@ table.data-table tr:hover td{background:var(--bg-purple)}
     <div class="card" style="overflow-x:auto">
       <div class="card-title"><span class="card-dot" style="background:var(--aqua)"></span>All UKPN Projects</div>
       <table class="data-table" id="ukpnAllTable">
-        <thead><tr><th>Project</th><th>Round</th><th>Phase</th><th style="text-align:right">SIF Funding</th></tr></thead>
+        <thead><tr>
+          <th class="sortable" data-sort="name" onclick="sortUKPNTable('name')">Project <span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="round" onclick="sortUKPNTable('round')">Round <span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="phase" onclick="sortUKPNTable('phase')">Phase <span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="sif" onclick="sortUKPNTable('sif')" style="text-align:right">SIF Funding <span class="sort-arrow">▼</span></th>
+        </tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -1090,6 +1099,7 @@ function renderTopTable(s) {
      <td style="color:var(--text-dark);font-weight:700">${p.name}${p.group==='UKPN'?' <span style="font-size:.63rem;background:var(--orange);color:#fff;padding:.1rem .4rem;border-radius:3px;font-weight:800">UKPN</span>':''}</td>
      <td>${p.group}</td>
      <td><span class="tag ${sectorTag(p.sector)}">${p.sector}</span></td>
+     <td style="text-align:center;font-weight:600">${p.round}</td>
      <td>${s.phaseLabel(p.phase)}</td>
      <td class="money" style="text-align:right">${fmt(p.sif)}</td></tr>`
   ).join('');
@@ -1349,9 +1359,55 @@ function renderUKPNJourneys(ukpn, ph) {
   }).join('');
 }
 
+let _ukpnTableData = [];
+let _ukpnPhaseFn = null;
+let _ukpnSortCol = 'sif';
+let _ukpnSortAsc = false;
+
 function renderUKPNTable(ukpn, ph) {
+  _ukpnTableData = ukpn;
+  _ukpnPhaseFn = ph;
+  _ukpnSortCol = 'sif';
+  _ukpnSortAsc = false;
+  _renderUKPNTableSorted();
+  _updateUKPNSortArrows();
+}
+
+function sortUKPNTable(col) {
+  if (_ukpnSortCol === col) { _ukpnSortAsc = !_ukpnSortAsc; }
+  else { _ukpnSortCol = col; _ukpnSortAsc = col === 'name'; }
+  _renderUKPNTableSorted();
+  _updateUKPNSortArrows();
+}
+
+function _updateUKPNSortArrows() {
+  document.querySelectorAll('#ukpnAllTable th.sortable').forEach(th => {
+    const arrow = th.querySelector('.sort-arrow');
+    if (th.dataset.sort === _ukpnSortCol) {
+      th.classList.add('active');
+      arrow.textContent = _ukpnSortAsc ? '▲' : '▼';
+    } else {
+      th.classList.remove('active');
+      arrow.textContent = '';
+    }
+  });
+}
+
+function _renderUKPNTableSorted() {
+  const ph = _ukpnPhaseFn;
+  const phaseOrder = {'Discovery':0,'Alpha':1,'Beta':2};
+  const sorted = [..._ukpnTableData].sort((a,b) => {
+    let cmp = 0;
+    switch(_ukpnSortCol) {
+      case 'name':  cmp = a.name.localeCompare(b.name); break;
+      case 'round': cmp = a.round - b.round; break;
+      case 'phase': cmp = (phaseOrder[ph(a.phase)]||0) - (phaseOrder[ph(b.phase)]||0); break;
+      case 'sif':   cmp = a.sif - b.sif; break;
+    }
+    return _ukpnSortAsc ? cmp : -cmp;
+  });
   const tbl = document.querySelector('#ukpnAllTable tbody');
-  tbl.innerHTML = [...ukpn].sort((a,b)=>b.sif-a.sif).map(p => {
+  tbl.innerHTML = sorted.map(p => {
     const phase = ph(p.phase);
     const phBg = phase==='Beta'?'rgba(156,20,33,.1)':phase==='Alpha'?'rgba(247,149,30,.12)':'rgba(39,24,126,.08)';
     const phFg = phase==='Beta'?C.red:phase==='Alpha'?C.neonOrange:C.navy;
