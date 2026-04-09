@@ -1436,23 +1436,51 @@ function renderUKPNJourneys(ukpn, ph) {
   const jMap = {};
   ukpn.forEach(p => {
     const key = p.name.split(' (')[0].trim();
-    if (!jMap[key]) jMap[key] = {phases:new Set(),totalSif:0,name:p.name};
-    jMap[key].phases.add(ph(p.phase));
+    if (!jMap[key]) jMap[key] = {phases:new Set(),totalSif:0,name:p.name,phaseDetails:{}};
+    const phase = ph(p.phase);
+    jMap[key].phases.add(phase);
     jMap[key].totalSif += p.sif;
+    // Store the project data per phase (latest/highest sif wins if duplicates)
+    if (!jMap[key].phaseDetails[phase] || p.sif > jMap[key].phaseDetails[phase].sif) {
+      jMap[key].phaseDetails[phase] = p;
+    }
   });
   const multi = Object.entries(jMap).filter(([,v])=>v.phases.size>1).sort((a,b)=>b[1].totalSif-a[1].totalSif);
-  document.getElementById('ukpnJourneys').innerHTML = multi.map(([key,d]) => {
+  document.getElementById('ukpnJourneys').innerHTML = multi.map(([key,d], idx) => {
     const sorted = phaseOrder.filter(p=>d.phases.has(p));
     const pips = sorted.map((p,i) => {
       const cls = p==='Discovery'?'phase-disc':p==='Alpha'?'phase-alpha':'phase-beta';
       const arrow = i<sorted.length-1?'<span class="phase-arrow">▶</span>':'';
       return `<span class="phase-pip ${cls}">${p}</span>${arrow}`;
     }).join('');
-    return `<div class="journey-row">
+    // Pick the latest phase's project for the description
+    const latestPhase = [...sorted].reverse()[0];
+    const proj = d.phaseDetails[latestPhase];
+    const desc = proj?.description || '';
+    return `<div class="journey-row" style="cursor:pointer" onclick="toggleJourneyDetail(${idx})">
       <div class="journey-name" title="${d.name}">${d.name}</div>
       <div><div class="journey-phases">${pips}<span style="margin-left:.5rem;font-size:.7rem;color:var(--text-light);font-weight:600">${fmtK(d.totalSif)}</span></div></div>
+    </div>
+    <div class="journey-detail-row" id="journeyDetail${idx}" style="display:none;padding:0 0 .6rem 0;border-bottom:1px solid var(--border)">
+      <div style="background:var(--bg-page);padding:.9rem 1.1rem;border-radius:8px;margin-top:.2rem">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem .75rem;font-size:.78rem;margin-bottom:.6rem">
+          <div><div style="color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">Latest Phase</div><div style="color:var(--text-dark);font-weight:600">${latestPhase}</div></div>
+          <div><div style="color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">Total SIF Funding</div><div style="color:var(--red);font-weight:800">${fmtK(d.totalSif)}</div></div>
+          <div><div style="color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">Funding Licensee</div><div style="color:var(--text-dark);font-weight:600">${proj?.licensee || '—'}</div></div>
+          <div><div style="color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">Dates (${latestPhase})</div><div style="color:var(--text-dark);font-weight:600">${proj?.start || '—'} → ${proj?.end || '—'}</div></div>
+        </div>
+        ${desc ? `<div style="color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem">Project Description (${latestPhase} Phase)</div><div style="font-size:.82rem;color:var(--text-mid);line-height:1.65;font-weight:400">${desc}</div>` : ''}
+      </div>
     </div>`;
   }).join('');
+}
+
+function toggleJourneyDetail(idx) {
+  const row = document.getElementById('journeyDetail' + idx);
+  if (!row) return;
+  const isOpen = row.style.display !== 'none';
+  document.querySelectorAll('.journey-detail-row').forEach(r => r.style.display = 'none');
+  if (!isOpen) row.style.display = 'block';
 }
 
 let _ukpnTableData = [];
