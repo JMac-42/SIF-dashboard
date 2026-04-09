@@ -584,7 +584,7 @@ th.sortable.active .sort-arrow{opacity:1;color:var(--orange)}
   </g></svg>
   <div class="hero-breadcrumb">Home <span>›</span> Innovation <span>›</span> SIF <span>›</span> UKPN Performance</div>
   <div class="hero-eyebrow" style="background:var(--white);color:var(--red)">UK Power Networks</div>
-  <h1>UKPN — SIF Performance</h1>
+  <h1>UK Power Networks - SIF Performance</h1>
   <p class="hero-sub" id="ukpnHeroSub">Electricity Distribution</p>
 </div>
 
@@ -1503,17 +1503,41 @@ function _renderUKPNTableSorted() {
     return _ukpnSortAsc ? cmp : -cmp;
   });
   const tbl = document.querySelector('#ukpnAllTable tbody');
-  tbl.innerHTML = sorted.map(p => {
+  tbl.innerHTML = sorted.map((p, idx) => {
     const phase = ph(p.phase);
     const phBg = phase==='Beta'?'rgba(156,20,33,.1)':phase==='Alpha'?'rgba(247,149,30,.12)':'rgba(39,24,126,.08)';
     const phFg = phase==='Beta'?C.red:phase==='Alpha'?C.neonOrange:C.navy;
     return `<tr>
-      <td style="color:var(--text-dark);font-weight:700;font-size:.78rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name}">${p.name}</td>
+      <td style="color:var(--text-dark);font-weight:700;font-size:.78rem;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" title="Click for details" onclick="toggleUKPNDetail(${idx})">${p.name}</td>
       <td style="color:var(--text-light);text-align:center;font-weight:600">${p.round}</td>
       <td><span class="phase-pip" style="background:${phBg};color:${phFg}">${phase}</span></td>
       <td class="money" style="text-align:right">${fmtK(p.sif)}</td>
+    </tr>
+    <tr class="ukpn-detail-row" id="ukpnDetail${idx}" style="display:none">
+      <td colspan="4" style="padding:0;border-bottom:2px solid var(--orange)">
+        <div style="background:var(--bg-page);padding:1rem 1.2rem;border-radius:0 0 8px 8px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem .75rem;font-size:.78rem;margin-bottom:.75rem">
+            <div><div style="color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">Funding Licensee</div><div style="color:var(--text-dark);font-weight:600">${p.licensee || '—'}</div></div>
+            <div><div style="color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">RIIO Type</div><div style="color:var(--text-dark);font-weight:600">${p.riioType || '—'}</div></div>
+            <div><div style="color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">Total Project Cost</div><div style="color:var(--text-dark);font-weight:600">${fmtK(p.cost)}</div></div>
+            <div><div style="color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">SIF Funding</div><div style="color:var(--red);font-weight:800">${fmtK(p.sif)}</div></div>
+            <div><div style="color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">Start Date</div><div style="color:var(--text-dark);font-weight:600">${p.start || '—'}</div></div>
+            <div><div style="color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em">End Date</div><div style="color:var(--text-dark);font-weight:600">${p.end || '—'}</div></div>
+          </div>
+          ${p.description ? `<div style="color:var(--text-light);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem">Project Description</div><div style="font-size:.82rem;color:var(--text-mid);line-height:1.65;font-weight:400">${p.description}</div>` : ''}
+        </div>
+      </td>
     </tr>`;
   }).join('');
+}
+
+function toggleUKPNDetail(idx) {
+  const row = document.getElementById('ukpnDetail' + idx);
+  if (!row) return;
+  const isOpen = row.style.display !== 'none';
+  // Close all other open detail rows
+  document.querySelectorAll('.ukpn-detail-row').forEach(r => r.style.display = 'none');
+  if (!isOpen) row.style.display = 'table-row';
 }
 
 // ═══════════════════════════════════════════════════════════
