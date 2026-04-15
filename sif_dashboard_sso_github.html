@@ -1444,14 +1444,16 @@ function renderUKPNGantt(ukpn) {
 
 function renderUKPNJourneys(ukpn, ph) {
   const phaseOrder = ['Discovery','Alpha','Beta'];
+  const renameMap = { 'Flex Direct': 'SNUG' };
+  const renameNote = { 'SNUG': 'formerly named Flex Direct in Discovery and Alpha' };
   const jMap = {};
   ukpn.forEach(p => {
-    const key = p.name.split(' (')[0].trim();
-    if (!jMap[key]) jMap[key] = {phases:new Set(),totalSif:0,name:p.name,phaseDetails:{}};
+    let key = p.name.split(' (')[0].split(':')[0].trim();
+    if (renameMap[key]) key = renameMap[key];
+    if (!jMap[key]) jMap[key] = {phases:new Set(),totalSif:0,name:key,phaseDetails:{}};
     const phase = ph(p.phase);
     jMap[key].phases.add(phase);
     jMap[key].totalSif += p.sif;
-    // Store the project data per phase (latest/highest sif wins if duplicates)
     if (!jMap[key].phaseDetails[phase] || p.sif > jMap[key].phaseDetails[phase].sif) {
       jMap[key].phaseDetails[phase] = p;
     }
@@ -1464,13 +1466,13 @@ function renderUKPNJourneys(ukpn, ph) {
       const arrow = i<sorted.length-1?'<span class="phase-arrow">▶</span>':'';
       return `<span class="phase-pip ${cls}">${p}</span>${arrow}`;
     }).join('');
-    // Pick the latest phase's project for the description
     const latestPhase = [...sorted].reverse()[0];
     const proj = d.phaseDetails[latestPhase];
     const desc = proj?.description || '';
+    const rename = renameNote[key] ? `<div style="font-size:.68rem;color:var(--orange);margin-top:.2rem;font-style:italic">(${renameNote[key]})</div>` : '';
     return `<div class="journey-row" style="cursor:pointer" onclick="toggleJourneyDetail(${idx})">
       <div class="journey-name" title="${d.name}">${d.name}</div>
-      <div><div class="journey-phases">${pips}<span style="margin-left:.5rem;font-size:.7rem;color:var(--text-light);font-weight:600">${fmtK(d.totalSif)}</span></div></div>
+      <div><div class="journey-phases">${pips}<span style="margin-left:.5rem;font-size:.7rem;color:var(--text-light);font-weight:600">${fmtK(d.totalSif)}</span></div>${rename}</div>
     </div>
     <div class="journey-detail-row" id="journeyDetail${idx}" style="display:none;padding:0 0 .6rem 0;border-bottom:1px solid var(--border)">
       <div style="background:var(--bg-page);padding:.9rem 1.1rem;border-radius:8px;margin-top:.2rem">
